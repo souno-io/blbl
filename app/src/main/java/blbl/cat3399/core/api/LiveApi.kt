@@ -12,6 +12,10 @@ import org.json.JSONObject
 
 internal object LiveApi {
     private const val LIVE_AREAS_CACHE_TTL_MS = 12 * 60 * 60 * 1000L // 12h
+    // Modern browser UA for live danmaku endpoints; an outdated UA triggers风控 (-352).
+    // Matches blivechat's USER_AGENT.
+    private const val DANMAKU_USER_AGENT =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
     private val LIVE_ORIGIN_INDEX_M3U8_REGEX = Regex("""(/live-bvc/\d+/live_\d+_\d+)(?:_[^/]+)?(/index\.m3u8)$""")
     private val LIVE_ORIGIN_M3U8_REGEX = Regex("""(/live-bvc/\d+/live_\d+_\d+)(?:_[^/\.]+)?(\.m3u8)$""")
     // Issue #35: Prefer known-good origin hosts instead of rewriting every API host.
@@ -414,28 +418,38 @@ internal object LiveApi {
 
     suspend fun liveDanmuInfo(roomId: Long): BiliApi.LiveDanmuInfo {
         WebCookieMaintainer.ensureWebFingerprintCookies()
-        val keys = BiliClient.ensureWbiKeys()
-        val url =
-            BiliClient.signedWbiUrlAbsolute(
-                "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo",
-                params =
-                    mapOf(
-                        "id" to roomId.toString(),
-                        "type" to "0",
-                        "web_location" to "444.8",
-                    ),
-                keys = keys,
+        val headers =
+            mapOf(
+                "User-Agent" to DANMAKU_USER_AGENT,
+                "Referer" to "https://live.bilibili.com/",
+                "Origin" to "https://live.bilibili.com",
             )
-        val json =
-            BiliClient.getJson(
-                url,
-                headers =
-                    mapOf(
-                        "Referer" to "https://live.bilibili.com/",
-                        "Origin" to "https://live.bilibili.com",
-                    ),
-            )
-        val code = json.optInt("code", 0)
+
+        suspend fun request(): JSONObject {
+            val keys = BiliClient.ensureWbiKeys()
+            val url =
+                BiliClient.signedWbiUrlAbsolute(
+                    "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo",
+                    params =
+                        mapOf(
+                            "id" to roomId.toString(),
+                            "type" to "0",
+                            "web_location" to "444.8",
+                        ),
+                    keys = keys,
+                )
+            return BiliClient.getJson(url, headers = headers)
+        }
+
+        var json = request()
+        var code = json.optInt("code", 0)
+        if (code == -352) {
+            // 风控/WBI签名失效：刷新密钥与指纹后重试一次（对齐 blivechat 的 -352 处理）。
+            BiliClient.resetWbiKeys()
+            WebCookieMaintainer.ensureWebFingerprintCookies()
+            json = request()
+            code = json.optInt("code", 0)
+        }
         if (code != 0) {
             val msg = json.optString("message", json.optString("msg", ""))
             throw BiliApiException(apiCode = code, apiMessage = msg)

@@ -190,6 +190,14 @@ class AppPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_DANMAKU_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_DANMAKU_ENABLED, value).apply()
 
+    /**
+     * Whether live-room chat messages (B站直播聊天列表里的发言，即 DANMU_MSG) are rendered
+     * as floating on-screen danmaku in the live player. When off, live chat is not floated.
+     */
+    var liveCommentAsDanmaku: Boolean
+        get() = prefs.getBoolean(KEY_LIVE_COMMENT_AS_DANMAKU, true)
+        set(value) = prefs.edit().putBoolean(KEY_LIVE_COMMENT_AS_DANMAKU, value).apply()
+
     var danmakuAllowTop: Boolean
         get() = prefs.getBoolean(KEY_DANMAKU_ALLOW_TOP, true)
         set(value) = prefs.edit().putBoolean(KEY_DANMAKU_ALLOW_TOP, value).apply()
@@ -1075,6 +1083,7 @@ class AppPrefs(context: Context) {
         private const val KEY_AUTO_UPDATE_IGNORED_VERSION_NAME = "auto_update_ignored_version_name"
         private const val KEY_IMAGE_QUALITY = "image_quality"
         private const val KEY_DANMAKU_ENABLED = "danmaku_enabled"
+        private const val KEY_LIVE_COMMENT_AS_DANMAKU = "live_comment_as_danmaku"
         private const val KEY_DANMAKU_ALLOW_TOP = "danmaku_allow_top"
         private const val KEY_DANMAKU_ALLOW_BOTTOM = "danmaku_allow_bottom"
         private const val KEY_DANMAKU_ALLOW_SCROLL = "danmaku_allow_scroll"

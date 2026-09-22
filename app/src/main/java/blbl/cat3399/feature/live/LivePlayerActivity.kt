@@ -97,6 +97,7 @@ private object LivePlayerSettingKeys {
     const val AUDIO_BALANCE = "audio_balance"
     const val PLAYER_ENGINE = "player_engine"
     const val DEBUG_INFO = "debug_info"
+    const val COMMENT_AS_DANMAKU = "comment_as_danmaku"
 }
 
 class LivePlayerActivity : BaseActivity() {
@@ -1033,6 +1034,13 @@ class LivePlayerActivity : BaseActivity() {
                         refreshSettings()
                     }
 
+                    LivePlayerSettingKeys.COMMENT_AS_DANMAKU -> {
+                        val prefs = BiliClient.prefs
+                        prefs.liveCommentAsDanmaku = !prefs.liveCommentAsDanmaku
+                        AppToast.show(this, "直播间评论飘屏：${if (prefs.liveCommentAsDanmaku) "开" else "关"}")
+                        refreshSettings()
+                    }
+
                     else -> AppToast.show(this, "暂未实现：${item.title}")
                 }
             }
@@ -1129,6 +1137,11 @@ class LivePlayerActivity : BaseActivity() {
                 PlayerSettingsAdapter.SettingItem(key = LivePlayerSettingKeys.AUDIO_BALANCE, title = "音频平衡", subtitle = balanceLabel),
                 PlayerSettingsAdapter.SettingItem(key = LivePlayerSettingKeys.PLAYER_ENGINE, title = "播放器内核", subtitle = engineLabel),
                 PlayerSettingsAdapter.SettingItem(key = LivePlayerSettingKeys.DEBUG_INFO, title = "调试信息", subtitle = if (session.debugEnabled) "开" else "关"),
+                PlayerSettingsAdapter.SettingItem(
+                    key = LivePlayerSettingKeys.COMMENT_AS_DANMAKU,
+                    title = "直播间评论飘屏",
+                    subtitle = if (prefs.liveCommentAsDanmaku) "开" else "关",
+                ),
             )
         (binding.recyclerSettings.adapter as? PlayerSettingsAdapter)?.submit(list)
     }
@@ -1722,13 +1735,29 @@ class LivePlayerActivity : BaseActivity() {
     private fun liveDanmakuAppendTimeMs(): Int {
         val nowMs = liveDanmakuPositionMs().toInt()
         val lastMs = liveDanmakuLastAppendMs
-        val safeMs = if (lastMs == Int.MIN_VALUE) nowMs else nowMs.coerceAtLeast(lastMs)
+        var safeMs = if (lastMs == Int.MIN_VALUE) nowMs else nowMs.coerceAtLeast(lastMs)
+        // The danmaku engine drives rendering from a smooth playback clock which may run
+        // ahead of the wall clock during live playback (e.g. media3 live catch-up speeds
+        // the player up slightly). The engine never moves its clock backwards and drops
+        // items older than now - MAX_CATCH_UP_LAG_MS as stale, so once the smooth clock
+        // leads the wall clock, every incoming live danmaku would be silently discarded
+        // with no way to recover. Align appended timestamps with the engine clock to
+        // keep them inside the spawn window.
+        val engineMs =
+            runCatching { binding.danmakuView.currentPlaybackPositionMs() }
+                .getOrDefault(0L)
+                .coerceIn(0L, Int.MAX_VALUE.toLong())
+                .toInt()
+        if (engineMs > safeMs) safeMs = engineMs
         liveDanmakuLastAppendMs = safeMs
         return safeMs
     }
 
     private fun appendLiveDanmakuEvent(ev: LiveMessageClient.LiveDanmakuEvent) {
         if (!session.danmaku.enabled) return
+        // Live-room chat messages (DANMU_MSG) are only floated as danmaku when the
+        // user-enabled "直播间评论飘屏" toggle is on.
+        if (!BiliClient.prefs.liveCommentAsDanmaku) return
         if (player == null) return
         val timeMs = liveDanmakuAppendTimeMs()
 

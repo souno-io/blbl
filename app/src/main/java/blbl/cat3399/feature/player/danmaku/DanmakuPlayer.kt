@@ -98,6 +98,9 @@ internal class DanmakuPlayer(
 
     internal fun debugSnapshot(): RenderSnapshot = engineMain.renderSnapshot()
 
+    /** Smooth clock position (ms) driving the engine; safe to read from any thread. */
+    fun currentSmoothPositionMs(): Long = timer.currentPositionMs()
+
     private var lastEnabled: Boolean = true
 
     init {

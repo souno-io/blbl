@@ -58,15 +58,36 @@ class LiveMessageClient(
         reconnectAttempt = 0
         hostIndex = 0
 
-        val info = BiliApi.liveDanmuInfo(roomId)
-        val token = info.token
-        val hosts = preferHosts(info.hosts)
-        if (hosts.isEmpty() || token.isBlank()) {
-            onStatus("弹幕连接信息为空")
-            return
+        // getDanmuInfo may transiently fail or hit风控 (-352); retry a few times
+        // (refreshing WBI keys) before falling back to the default node, so a single
+        // failure no longer leaves the room permanently without danmaku.
+        var fetchedToken = ""
+        var fetchedHosts: List<BiliApi.LiveDanmuHost> = emptyList()
+        var attempt = 0
+        while (attempt < DANMU_INFO_MAX_RETRY && !closed) {
+            attempt++
+            val info =
+                runCatching { BiliApi.liveDanmuInfo(roomId) }
+                    .onFailure {
+                        AppLog.w("LiveWs", "getDanmuInfo attempt=$attempt failed roomId=$roomId", it)
+                        runCatching { BiliClient.resetWbiKeys() }
+                    }
+                    .getOrNull()
+            if (info != null && info.token.isNotBlank() && info.hosts.isNotEmpty()) {
+                fetchedToken = info.token
+                fetchedHosts = preferHosts(info.hosts)
+                break
+            }
+            if (attempt < DANMU_INFO_MAX_RETRY) kotlinx.coroutines.delay(500L * attempt)
         }
-        this.token = token
-        this.hosts = hosts
+
+        val resolvedHosts = fetchedHosts.ifEmpty { DEFAULT_DANMAKU_HOSTS }
+        if (fetchedToken.isBlank() && fetchedHosts.isEmpty()) {
+            onStatus("弹幕连接信息为空，使用默认节点")
+            AppLog.w("LiveWs", "getDanmuInfo empty after $attempt attempts, fallback to default hosts roomId=$roomId")
+        }
+        this.token = fetchedToken
+        this.hosts = resolvedHosts
         connectCurrentHost()
     }
 
@@ -124,9 +145,9 @@ class LiveMessageClient(
         val req =
             Request.Builder()
                 .url(url)
-                .header("User-Agent", BiliClient.prefs.userAgent)
+                .header("User-Agent", DANMAKU_USER_AGENT)
                 .header("Referer", "https://live.bilibili.com/")
-                .header("Origin", "https://www.bilibili.com")
+                .header("Origin", "https://live.bilibili.com")
                 .build()
         ws = BiliClient.apiOkHttp.newWebSocket(req, Listener())
     }
@@ -181,18 +202,23 @@ class LiveMessageClient(
                         ?.toLongOrNull()
                         ?: 0L
                 }
+            // buvid is required by B站 live风控 for the auth packet to actually push
+            // DANMU_MSG (see blivechat _send_auth). Without it the socket connects and
+            // auth replies OK, but no danmaku messages are delivered.
+            val buvid = BiliClient.cookies.getCookieValue("buvid3")?.trim().orEmpty()
             val body =
                 JSONObject()
                     .put("uid", uid)
                     .put("roomid", roomId)
                     .put("protover", 3) // allow brotli/zlib packets
                     .put("platform", "web")
+                    .put("buvid", buvid)
                     .put("type", 2)
                     .put("key", token)
                     .toString()
                     .toByteArray(Charsets.UTF_8)
             val sent = webSocket.send(ByteString.of(*buildPacket(op = OP_AUTH, ver = 1, body = body)))
-            AppLog.d("LiveWs", "send auth ok=$sent uid=$uid roomId=$roomId")
+            AppLog.d("LiveWs", "send auth ok=$sent uid=$uid roomId=$roomId buvid=${buvid.isNotEmpty()}")
 
             authTimeoutTask?.cancel(true)
             authTimeoutTask =
@@ -419,5 +445,23 @@ class LiveMessageClient(
         private const val OP_MESSAGE = 5
         private const val OP_AUTH = 7
         private const val OP_AUTH_REPLY = 8
+
+        // Modern browser UA (matches blivechat). An outdated UA on the danmaku
+        // endpoints triggers B站风控 (-352) and returns empty token/host_list.
+        private const val DANMAKU_USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+
+        // Fallback node (matches blivechat DEFAULT_DANMAKU_SERVER_LIST) used when
+        // getDanmuInfo is unavailable, so danmaku can still connect.
+        private val DEFAULT_DANMAKU_HOSTS =
+            listOf(
+                BiliApi.LiveDanmuHost(
+                    host = "broadcastlv.chat.bilibili.com",
+                    wssPort = 443,
+                    wsPort = 2244,
+                ),
+            )
+
+        private const val DANMU_INFO_MAX_RETRY = 3
     }
 }

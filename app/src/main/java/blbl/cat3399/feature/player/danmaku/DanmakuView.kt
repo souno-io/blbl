@@ -164,6 +164,13 @@ class DanmakuView @JvmOverloads constructor(
         configProvider = provider
     }
 
+    /**
+     * Current smooth playback position (ms) used by the danmaku engine as "now".
+     * Live append flows can align item timestamps with it so entries never fall
+     * behind the engine's forward-only clock and get dropped as stale.
+     */
+    fun currentPlaybackPositionMs(): Long = player.currentSmoothPositionMs()
+
     fun setDanmakus(list: List<Danmaku>) {
         player.setDanmakus(list)
         invalidate()

@@ -244,6 +244,11 @@ object BiliClient {
         return keys
     }
 
+    /** Drop cached WBI keys so the next [ensureWbiKeys] re-fetches (used after -352风控). */
+    fun resetWbiKeys() {
+        wbiKeys = null
+    }
+
     fun withQuery(url: String, params: Map<String, String>): String {
         val httpUrl = url.toHttpUrl().newBuilder()
         for ((k, v) in params) httpUrl.addQueryParameter(k, v)
