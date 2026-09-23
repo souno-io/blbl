@@ -2,28 +2,21 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="150"
-    android:viewportHeight="150">
-    <group
-        android:pivotX="75"
-        android:pivotY="75"
-        android:scaleX="1.1"
-        android:scaleY="1.1">
-        <path
-            android:fillColor="@android:color/transparent"
-            android:pathData="M75,19C93,19 111,24 126,32C124,55 117,82 102,104C94,116 84,126 75,131C66,126 56,116 48,104C33,82 26,55 24,32C39,24 57,19 75,19Z"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"
-            android:strokeMiterLimit="10"
-            android:strokeWidth="10.8" />
-        <path
-            android:fillColor="@android:color/transparent"
-            android:pathData="M61.14,47.5L102.71,71.5L61.14,95.5Z"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"
-            android:strokeMiterLimit="10"
-            android:strokeWidth="10.8" />
-    </group>
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Sponsor badge: rounded shield outline + play triangle, shared 24-grid stroke style -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M12,2.8 C14.9,2.8 17.8,3.6 20.2,4.9 C19.8,8.8 18.7,13 16.4,16.5 C15,18.6 13.5,20.2 12,21.2 C10.5,20.2 9,18.6 7.6,16.5 C5.3,13 4.2,8.8 3.8,4.9 C6.2,3.6 9.1,2.8 12,2.8 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M9.9,8.2 L15.6,11.6 L9.9,15 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2" />
 </vector>

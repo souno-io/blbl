@@ -3,11 +3,18 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- Play in circle: stroke ring + filled rounded triangle, shared 24-grid -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M10,8l6,4 -6,4z" />
+        android:fillColor="#00000000"
+        android:pathData="M21,12 A9,9 0 1,1 3,12 A9,9 0 1,1 21,12 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2" />
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zm0,18c-4.41,0 -8,-3.59 -8,-8s3.59,-8 8,-8 8,3.59 8,8 -3.59,8 -8,8z" />
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10.2,8.4 L15.8,12 L10.2,15.6 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.4" />
 </vector>
-
